@@ -9,12 +9,15 @@ local defaults = {
   --- When nvim-web-devicons is available, the default is the unlock icon
   --- with its highlight; otherwise falls back to " ⮕ ".
   prefix = nil,
-  --- Highlight group for the prefix (used when `prefix` is a plain string).
-  hl_group_prefix = "UncloakPrefix",
-  --- Highlight group for normal decoded values.
-  hl_group_value = "UncloakValue",
-  --- Highlight group for suspicious decoded values.
-  hl_group_warn = "UncloakWarn",
+  --- Highlight groups used for virtual text.
+  highlights = {
+    --- Highlight group for the prefix icon/text.
+    prefix = "UncloakPrefix",
+    --- Highlight group for normal decoded values.
+    value = "UncloakValue",
+    --- Highlight group for suspicious decoded values.
+    warn = "UncloakWarn",
+  },
   --- Maximum display length for decoded text (longer values are truncated).
   max_len = 120,
   --- Ignore base64 values shorter than this (reduces false positives).
@@ -293,14 +296,15 @@ local function render(bufnr)
           display = display:sub(1, M.config.max_len - 3) .. "..."
         end
 
-        local value_hl = is_suspicious(decoded) and M.config.hl_group_warn or M.config.hl_group_value
+        local value_hl = is_suspicious(decoded) and M.config.highlights.warn or M.config.highlights.value
 
         vim.api.nvim_buf_set_extmark(bufnr, ns, candidate.lnum - 1, 0, {
           virt_text = {
-            { M._prefix_text or " ⮕ ", M._prefix_hl or M.config.hl_group_prefix },
+            { M._prefix_text or " ⮕ ", M._prefix_hl or M.config.highlights.prefix },
             { display, value_hl },
           },
           virt_text_pos = "eol",
+          hl_mode = "combine",
         })
       end
     end
@@ -363,35 +367,24 @@ local function resolve_prefix(config)
 
   -- Table form: { icon = "…", hl = "…" }
   if type(prefix) == "table" then
-    return (prefix.icon or "") .. " ", prefix.hl or config.hl_group_prefix
+    return (prefix.icon or "") .. " ", prefix.hl or config.highlights.prefix
   end
 
   -- Explicit string: use as-is with the configured prefix highlight.
   if type(prefix) == "string" then
-    return prefix, config.hl_group_prefix
+    return prefix, config.highlights.prefix
   end
 
   -- nil: auto-detect from nvim-web-devicons, fall back to plain text.
-  local ok, devicons = pcall(require, "nvim-web-devicons")
+  -- Use the nf-fa-unlock glyph if a Nerd Font is likely available
+  -- (detected by checking for nvim-web-devicons), otherwise fall back to
+  -- a plain-text arrow.
+  local ok = pcall(require, "nvim-web-devicons")
   if ok then
-    local unlock = "" -- nf-fa-unlock (U+F09C)
-    local _, color, cterm = devicons.get_icon_colors("lock", nil, { default = false })
-    devicons.set_icon({
-      uncloak = {
-        icon = unlock,
-        color = color,
-        cterm_color = cterm,
-        name = "Uncloak",
-      },
-    })
-
-    local icon, hl = devicons.get_icon("uncloak", nil, { default = false })
-    if icon then
-      return " " .. icon .. " ", hl
-    end
+    return " \xef\x82\x9c ", config.highlights.prefix -- nf-fa-unlock (U+F09C)
   end
 
-  return " ⮕ ", config.hl_group_prefix
+  return " ⮕ ", config.highlights.prefix
 end
 
 --- Initialise the plugin.  Called automatically by lazy.nvim when `opts` is

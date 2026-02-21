@@ -9,9 +9,9 @@ or hidden shell commands at a glance.
 - Inline decoded virtual text at end of line
 - Suspicious content highlighted with a warning colour (shell commands, URLs, …)
 - Built-in parsers for:
-  - **env** — `.env`, `.env.*`, and generic `KEY=VALUE` files
+  - **sh** — `.env`, `.env.*`, and generic `KEY=VALUE` / shell-style files
   - **toml** — mise config (`mise.toml`, `.mise.toml`, `.mise.*.toml`), scoped to `[env]` sections
-  - **yaml** — YAML files with `env:` mapping blocks (e.g. docker-compose), at any nesting depth
+  - **yaml** — any YAML file (e.g. docker-compose, Kubernetes manifests)
 - **Extensible** — map new filetypes to existing parsers, or register custom parsers, all from `opts`
 - Per-buffer toggle via `:UncloakToggle`
 - Debounced updates on every text change
@@ -47,9 +47,11 @@ require("uncloak").setup({
   -- { icon, hl } → use icon with a custom highlight group
   prefix = nil,
 
-  hl_group_prefix = "UncloakPrefix",  -- links to NonText (used when prefix is a string)
-  hl_group_value  = "UncloakValue",   -- links to String
-  hl_group_warn   = "UncloakWarn",    -- links to DiagnosticWarn
+  highlights = {
+    prefix = "UncloakPrefix",  -- links to NonText
+    value  = "UncloakValue",   -- links to String
+    warn   = "UncloakWarn",    -- links to DiagnosticWarn
+  },
   max_len = 120,
   min_encoded_len = 8,
   min_printable_ratio = 0.75,
@@ -105,8 +107,8 @@ opts = {
 }
 ```
 
-Since the built-in `yaml` parser already handles `env:` blocks, you only need
-to map the filetype. No custom parser required.
+Since the built-in `yaml` parser already handles all YAML key-value pairs, you
+only need to map the filetype. No custom parser required.
 
 #### Example: register a new parser for a custom format
 
@@ -167,7 +169,7 @@ vim.print(uncloak.get_parsers())
    parser for the buffer — first by filetype mapping, then by each parser's
    `detect()` method.
 2. The parser's `extract_values()` scans the buffer lines and returns
-   candidate key-value pairs (with section scoping for TOML/YAML).
+   candidate key-value pairs (with section scoping for TOML `[env]` blocks).
 3. Values are validated as strict base64 (correct length, charset, padding).
 4. Decoded bytes are checked for printability to filter false positives.
 5. Surviving values are sanitised and displayed as end-of-line virtual text.
